@@ -1,5 +1,5 @@
 # Fossil_bias_and_LBG_detection
 
-R codes to perform the analyses presented in the manuscript "Is the latitudinal biodiversity gradient bias-proof?"
+R codes to perform the analyses presented in the manuscript "Biases can't hide conspicuous biodiversity patterns."
 
-Galván et al.
+Galván, S., Gamboa, S. Chiarenza, A.A., Rotatori, F.M., Oliver, A. & Varela, S.
