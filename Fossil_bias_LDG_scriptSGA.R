@@ -562,8 +562,8 @@ for (i in 1:length(family_names)) {
 
 ## Taxonomic weighted
 set.seed(288)
-tax75 <- sample(seq_len(nrow(Combi_6)), round(0.75*nrow(Combi_6)), prob = Combi_6$Fam_obs)
-Combi_75tax <- Combi_6[tax75,] #1514
+tax75 <- sample(seq_len(nrow(Combi_75fos)), round(0.75*nrow(Combi_75fos)), prob = Combi_75fos$Fam_obs)
+Combi_75tax <- Combi_75fos[tax75,] #1514
 Mam_75tax <- Mam_75fos[,c("X", "Y",Combi_75tax$iucn2020_binomial, "Land_mass", "Clim_zone",
                           "GUM_USC", "WC_zone", "Richness", "Land", "Area", "Fossils",
                           "Richness2","Richness3")] #1526
@@ -583,11 +583,11 @@ crs(Mam_75tax_raster) <- "+proj=longlat +datum=WGS84 +no_defs"
 0.75*nrow(Mam_pbdb3) #88.5 = 9 families
 sort(Mam_pbdb3$n_obs, decreasing = T)[[89]]
 my_families <- Mam_pbdb3[Mam_pbdb3$n_obs >=23,1]
-Combi_7 <- Combi_6[Combi_6$family %in% my_families,]
-Mam_75tax2 <- Mam_75fos[,c("X", "Y",Combi_7$iucn2020_binomial, "Land_mass", "Clim_zone",
+Combi_fos2 <- Combi_75fos[Combi_75fos$family %in% my_families,]
+Mam_75tax2 <- Mam_75fos[,c("X", "Y",Combi_fos2$iucn2020_binomial, "Land_mass", "Clim_zone",
                            "GUM_USC", "WC_zone", "Richness", "Land", "Area", "Fossils", 
                            "Richness2","Richness3")] 
-identical(sort(colnames(Mam_75tax2[,3:1902])), sort(Combi_7$iucn2020_binomial)) #T
+identical(sort(colnames(Mam_75tax2[,3:1902])), sort(Combi_fos2$iucn2020_binomial)) #T
 richness <- apply(Mam_75tax2[,3:1902], 1, function(x) length(x[x>0]))
 Mam_75tax2[,1913] <- richness
 colnames(Mam_75tax2)[colnames(Mam_75tax2) == "V1913"] <- "Richness4" #New column
@@ -812,6 +812,8 @@ for (i in 3:161) {
 }
 
 
+#All richness values along the filter are stored in "richness_perzone_UcS2.csv"
+
 ############################## Plot LBG graphs #################################
 mam_r_moll <- terra::project(mam_raster, 
                              y = "+proj=moll +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84",
@@ -989,15 +991,15 @@ Mam50tax2_longlat_sf <- st_transform(Mam_50tax2_moll_sf, "+proj=longlat +datum=W
 Mam_25tax2_moll_sf <- st_as_sf(Mam_25tax2_moll_df)
 Mam25tax2_longlat_sf <- st_transform(Mam_25tax2_moll_sf, "+proj=longlat +datum=WGS84 +no_defs")
 
-identical(mam_f_longlat_sf$lyr.1, mam_f_moll_sf$lyr.1) #TRUE
-mam_r_sf_juntas <- cbind(mam_r_moll_sf, mam_r_longlat_sf$geometry)
-mam_r_dfforplot <- as.data.frame(mam_r_sf_juntas$lyr.1)
-for (i in 1:259200) {
-  print(i)
-  mam_r_dfforplot[i,2] <- mam_r_sf_juntas$geometry[[i]][2]
-  mam_r_dfforplot[i,3] <- mam_r_sf_juntas$geometry.1[[i]][2]
-}
-colnames(mam_r_dfforplot) <- c("Richness", "Moll", "Longlat")
+#identical(mam_f_longlat_sf$lyr.1, mam_f_moll_sf$lyr.1) #TRUE
+#mam_r_sf_juntas <- cbind(mam_r_moll_sf, mam_r_longlat_sf$geometry)
+#mam_r_dfforplot <- as.data.frame(mam_r_sf_juntas$lyr.1)
+#for (i in 1:259200) {
+#  print(i)
+#  mam_r_dfforplot[i,2] <- mam_r_sf_juntas$geometry[[i]][2]
+#  mam_r_dfforplot[i,3] <- mam_r_sf_juntas$geometry.1[[i]][2]
+#}
+#colnames(mam_r_dfforplot) <- c("Richness", "Moll", "Longlat")
 
 #write.table(mam_r_dfforplot, "sf_coords.csv", row.names = F)
 mam_r_dfforplot <- read.table("sf_coords.csv")
@@ -1029,3 +1031,183 @@ ggplot(db_forslopes, aes(Longlat, tax2_25, color = tax2_25)) +
 #dev.off()
 
 ########################## Plot Taxonomic richnes map ##########################
+#setwd("./Figures/Figure_richness")
+rast_bc <- rast(nrows = 360, ncols = 720, resolution = 0.5, vals = 1,
+                extent = ext(-180, 180, -90, 90))
+rast_bc <- terra::project(rast_bc, 
+                          y = "+proj=moll +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84",
+                          method = "near",
+                          res = 50080)
+sp_bc <- as.polygons(rast_bc)
+
+#pdf("Mam_75_taxwholefam.pdf", useDingbats = F)
+plot(sp_bc, axes = F)
+plot(land_moll$geometry, col = "grey30", border = "grey30", lwd=0.4, add = T) #, bg = "skyblue"
+terra::plot(Mam_75bs_moll, col = rev(paletteer_c("grDevices::YlOrBr", 400)), axes = F, 
+            range = c(0,250), pax = list(labels = F, tick = F), legend = F, add = T)
+plot(land_moll$geometry, border = "grey30", add = T, lwd=0.4)
+#dev.off()
+
+
+########################## Calculating area loss ###############################
+wc_moll <- terra::project(wc_raster, 
+                          y = "+proj=moll +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84",
+                          method = "near", res = 50080)
+wc_molldf <- terra::as.data.frame(wc_moll, xy = T, na.rm = F)
+wc_molldf[is.nan(wc_molldf$lyr.1), 3] <- NA
+npixel_original <- table(wc_molldf$lyr.1)
+
+GUM_moll <- terra::project(GUM_new, 
+                           y = "+proj=moll +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84",
+                           method = "near", res = 50080)
+wc_extracted <- terra::mask(wc_moll, GUM_moll)
+wc_ext_df <- terra::as.data.frame(wc_extracted, xy = T, na.rm = F)
+npixel_extracted <- table(wc_ext_df$lyr.1)
+
+pixels_df <- data.frame(npixel_original, npixel_extracted)[,c(1,2,4)]
+colnames(pixels_df) <- c("WC_zone", "npixel_raw", "npixel_fil")
+pixels_df$per_loss <- 100-(round((pixels_df$npixel_fil/pixels_df$npixel_raw)*100,2))
+pixels_df$UCS_sed <- round((pixels_df$npixel_fil/pixels_df$npixel_raw)*100,2)
+
+Mam_fos_moll <- terra::project(Mam_raster, 
+                               y = "+proj=moll +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84",
+                               method = "near", res = 50080)
+wc_fos_extracted <- terra::mask(wc_extracted, Mam_fos_moll)
+wc_fos_df <- terra::as.data.frame(wc_fos_extracted, xy = T, na.rm = F)
+npixel_fos <- table(wc_fos_df$lyr.1)
+
+pixels_df2 <- data.frame(npixel_extracted, npixel_fos)[,c(1,2,4)]
+colnames(pixels_df2) <- c("WC_zone", "npixel_UcS", "npixel_fos")
+pixels_df2$per_loss <- 100-(round((pixels_df2$npixel_fos/pixels_df2$npixel_UcS)*100,2))
+pixels_df2$UCS_sed <- round((pixels_df2$npixel_fos/pixels_df2$npixel_UcS)*100,2)
+
+
+######################### Calculating richness loss ############################
+Mam_rich_total <- read.csv("richness_perzone_UcS2.csv", header = T, sep = ";")
+Mam_rich_total <- Mam_rich_total[1:6,]
+for (i in 3:19) {
+  Mam_rich_total[,i] <- as.numeric(Mam_rich_total[,i])
+}
+
+Mam_rich_total[,20] <- round((1-(Mam_rich_total$UcS/Mam_rich_total$Original))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V20"] <- "Original_UcS"
+
+Mam_rich_total[,21] <- round((1-(Mam_rich_total$Rangesize_75/Mam_rich_total$UcS))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V21"] <- "UcS_rs75"
+Mam_rich_total[,22] <- round((1-(Mam_rich_total$Rangesize_50/Mam_rich_total$UcS))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V22"] <- "UcS_rs50"
+Mam_rich_total[,23] <- round((1-(Mam_rich_total$Rangesize_25/Mam_rich_total$UcS))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V23"] <- "UcS_rs25"
+
+Mam_rich_total[,24] <- round((1-(Mam_rich_total$Bodysize_75/Mam_rich_total$Rangesize_75))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V24"] <- "rs75_bs75"
+Mam_rich_total[,25] <- round((1-(Mam_rich_total$Bodysize_50/Mam_rich_total$Rangesize_50))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V25"] <- "rs50_bs50"
+Mam_rich_total[,26] <- round((1-(Mam_rich_total$Bodysize_25/Mam_rich_total$Rangesize_25))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V26"] <- "rs25_bs25"
+
+Mam_rich_total[,27] <- round((1-(Mam_rich_total$Fossil_75/Mam_rich_total$Bodysize_75))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V27"] <- "bs75_fos75"
+Mam_rich_total[,28] <- round((1-(Mam_rich_total$Fossil_50/Mam_rich_total$Bodysize_50))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V28"] <- "bs50_fos50"
+Mam_rich_total[,29] <- round((1-(Mam_rich_total$Fossil_25/Mam_rich_total$Bodysize_25))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V29"] <- "bs25_fos25"
+
+Mam_rich_total[,30] <- round((1-(Mam_rich_total$Taxweight_75/Mam_rich_total$Fossil_75))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V30"] <- "fos75_taxw75"
+Mam_rich_total[,31] <- round((1-(Mam_rich_total$Taxweight_50/Mam_rich_total$Fossil_50))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V31"] <- "fos50_taxw50"
+Mam_rich_total[,32] <- round((1-(Mam_rich_total$Taxweight_25/Mam_rich_total$Fossil_25))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V32"] <- "fos25_taxw25"
+
+Mam_rich_total[,33] <- round((1-(Mam_rich_total$Taxfamily_75/Mam_rich_total$Fossil_75))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V33"] <- "fos75_taxf75"
+Mam_rich_total[,34] <- round((1-(Mam_rich_total$Taxfamily_50/Mam_rich_total$Fossil_50))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V34"] <- "fos50_taxf50"
+Mam_rich_total[,35] <- round((1-(Mam_rich_total$Taxfamily_25/Mam_rich_total$Fossil_25))*100, 2)
+colnames(Mam_rich_total)[colnames(Mam_rich_total) == "V35"] <- "fos25_tafw25"
+
+var_toplot <- colnames(Mam_rich_total[,20:35])
+labels_toplot <- list(c("Tropical (21.8%)", "Arid (14.0%)", "Temperate (27.0%)", "Cold (22.9%)", "Polar (42.4%)"),
+                      c("Tropical (22.4%)", "Arid (13.1%)", "Temperate (17.1%)", "Cold (10.3%)", "Polar (6.8%)"),
+                      c("Tropical (47.5%)", "Arid (32.6%)", "Temperate (38.8%)", "Cold (27.9%)", "Polar (20.7%)"),
+                      c("Tropical (73.2%)", "Arid (60.7%)", "Temperate (66.5%)", "Cold (57.0%)", "Polar (44.9%)"),
+                      c("Tropical (25.7%)", "Arid (27.8%)", "Temperate (27.5%)", "Cold (26.9%)", "Polar (25.4%)"),
+                      c("Tropical (49.0%)", "Arid (51.4%)", "Temperate (51.6%)", "Cold (49.5%)", "Polar (50.4%)"),
+                      c("Tropical (73.4%)", "Arid (74.1%)", "Temperate (74.3%)", "Cold (74.0%)", "Polar (71.7%)"),
+                      c("Tropical (33.7%)", "Arid (24.7%)", "Temperate (32.9%)", "Cold (22.4%)", "Polar (73.7%)"),
+                      c("Tropical (21.8%)", "Arid (21.3%)", "Temperate (29.5%)", "Cold (17.9%)", "Polar (78.6%)"),
+                      c("Tropical (15.9%)", "Arid (12.7%)", "Temperate (20.2%)", "Cold (14.3%)", "Polar (71.9%)"),
+                      c("Tropical (33.5%)", "Arid (20.9%)", "Temperate (21.4%)", "Cold (8.1%)", "Polar (23.1%)"),
+                      c("Tropical (57.9%)", "Arid (43.5%)", "Temperate (47.4%)", "Cold (32.4%)", "Polar (33.3%)"),
+                      c("Tropical (81.1%)", "Arid (74.5%)", "Temperate (76.3%)", "Cold (67.9%)", "Polar (80.0%)"),
+                      c("Tropical (9.4%)", "Arid (2.6%)", "Temperate (2.2%)", "Cold (0.2%)", "Polar (0.0%)"),
+                      c("Tropical (24.9%)", "Arid (13.5%)", "Temperate (14.2%)", "Cold (4.2%)", "Polar (10.4%)"),
+                      c("Tropical (52.9%)", "Arid (38.5%)", "Temperate (42.5%)", "Cold (17.9%)", "Polar (24.0%)"))
+names(labels_toplot) <- colnames(Mam_rich_total[,20:35])
+
+richloss_plots <- list()
+for (i in 1:16) {
+  mam_df <- Mam_rich_total[,var_toplot[i]][2:6]
+  df_forplot <- data.frame(mam_df, labels_toplot[[i]])
+  colnames(df_forplot) <- c("value1", "labels_names")
+  df_forplot$labels_names <- factor(df_forplot$labels_names, levels = df_forplot$labels_names)
+  pl <- ggplot(df_forplot, 
+               aes(x = labels_names, y = value1)) +
+    geom_col(color = c("#f9d14a", "#ab3329", "#ed968c", "#7c4b73", "#88a0dc"), 
+             lwd = 1, fill = c("#f9d14a", "#ab3329", "#ed968c", "#7c4b73", "#88a0dc"), 
+             width = 0.6) +
+    labs(x = "", y = "Richness loss (%)") +
+    theme_minimal() +
+    ggtitle(var_toplot[i]) +
+    coord_flip()
+  richloss_plots[[i]] <- pl
+}
+
+#setwd("./Figures/Figure_speciesloss")
+#pdf("fos75_taxf75_spploss.pdf", useDingbats = F)
+richloss_plots[[14]]
+#dev.off()
+
+#################### Correlation between area/richness loss ####################
+df_forcor <- as.data.frame(cbind(pixels_df$WC_zone, pixels_df$per_loss, Mam_rich_total$Original_UcS[2:6]))
+colnames(df_forcor) <- c("WC_zone", "Area_loss", "Sp_loss")
+#setwd("./Figures/Figure_arealoss")
+#pdf("Cor_UcS.pdf", useDingbats = F, width = 10, height = 7)
+ggplot(data = df_forcor, aes(x = Area_loss, y = Sp_loss)) +
+  geom_point(size = 4, alpha = 1, color = c("#f9d14a", "#ab3329", "#ed968c", "#7c4b73", "#88a0dc"))  +
+  stat_smooth(method = 'lm', se = TRUE, alpha = 0.1, color = "black") +
+  xlim(c(45,100)) + ylim(c(-75, 120)) +
+  #scale_x_continuous(limits = c(130, 1350), breaks = seq(100,1400, 300)) +
+  #scale_y_continuous(limits = c(-1500,6000)) +
+  labs(x = "Area loss (%)", y = "Species loss (%)") +
+  theme_minimal() +
+  theme(axis.line = element_line(colour = "grey50", size = 0.6), legend.position = 'none')
+#dev.off()
+mamcor_ric_area <- cor.test(x = df_forcor$Area_loss, 
+                            y = df_forcor$Sp_loss, 
+                            method = 'pearson')
+mamcor_ric_area$estimate
+mamcor_ric_area$p.value
+
+df_forcor2 <- as.data.frame(cbind(pixels_df2$WC_zone, pixels_df2$per_loss, Mam_rich_total$bs75_fos75[2:6]))
+df_forcor2 <- as.data.frame(cbind(pixels_df2$WC_zone, pixels_df2$per_loss, Mam_rich_total$bs50_fos50[2:6]))
+df_forcor2 <- as.data.frame(cbind(pixels_df2$WC_zone, pixels_df2$per_loss, Mam_rich_total$bs25_fos25[2:6]))
+colnames(df_forcor2) <- c("WC_zone", "Area_loss", "Sp_loss")
+#pdf("Cor_Foss25.pdf", useDingbats = F, width = 10, height = 7)
+ggplot(data = df_forcor2, aes(x = Area_loss, y = Sp_loss)) +
+  geom_point(size = 4, alpha = 1, color = c("#f9d14a", "#ab3329", "#ed968c", "#7c4b73", "#88a0dc"))  +
+  stat_smooth(method = 'lm', se = TRUE, alpha = 0.1, color = "black") +
+  xlim(c(45,100)) + ylim(c(-75, 120)) +
+  #scale_x_continuous(limits = c(130, 1350), breaks = seq(100,1400, 300)) +
+  #scale_y_continuous(limits = c(-1500,6000)) +
+  labs(x = "Area loss (%)", y = "Species loss (%)") +
+  theme_minimal() +
+  theme(axis.line = element_line(colour = "grey50", size = 0.6), legend.position = 'none')
+#dev.off()
+mamcor_ric_area <- cor.test(x = df_forcor2$Area_loss, 
+                            y = df_forcor2$Sp_loss, 
+                            method = 'pearson')
+mamcor_ric_area$estimate
+mamcor_ric_area$p.value
+
