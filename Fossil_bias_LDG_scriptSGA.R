@@ -1,9 +1,9 @@
 # ------------------------------------------------------------------------------
 # Publication: Biases can't hide conspicuous biodiversity patterns 
-# Last updated: 2024-07-09
+# Last updated: 2024-07-11
 # Author: Sofia Galvan
 # Email: sofia.galvan@uvigo.es
-# Repository: 
+# Repository: https://github.com/SofiaGalv/Fossil_bias_and_LBG_detection.git
 # ------------------------------------------------------------------------------
 
 library(devtools)
@@ -1211,3 +1211,354 @@ mamcor_ric_area <- cor.test(x = df_forcor2$Area_loss,
 mamcor_ric_area$estimate
 mamcor_ric_area$p.value
 
+
+
+########################### 0.9 quantile regressions ############################
+set.seed(134)
+seeds <- sample(1:2000, 100, replace = F)
+
+tell <- 10
+iterative_qr <- function(bbdd_entrada, var_name) {
+  qr_models <- list()
+  qr_iterations <- NULL
+  my_subdb <- bbdd_entrada[!is.na(bbdd_entrada[,var_name]),]
+  for (i in 1:100) {
+    set.seed(seeds[i])
+    sample1 <- my_subdb[sample(seq_len(nrow(my_subdb)), round(0.50*nrow(my_subdb))),]
+    qr1 <- rq(sample1[,var_name] ~ abs(Longlat), data=sample1, tau = 0.9)
+    qr_models[[i]] <- summary(qr1, se = "nid")
+    qr_iterations <- as.data.frame(rbind(qr_iterations, c(seeds[i], qr_models[[i]]$coefficients[1,]),
+                                         c(seeds[i], qr_models[[i]]$coefficients[2,])))
+    if (i %% tell ==0) cat(paste("iteration", i, "completed\n"))
+  }
+  return(qr_iterations)
+}
+
+vari_names <- colnames(db_forslopes)[3:19]
+qr_all <- list()
+for (i in 1:length(vari_names)) {
+  print(paste("Running variable called", vari_names[[i]], sep = " "))
+  qr_1var <- iterative_qr(db_forslopes, vari_names[[i]])
+  qr_all[[i]] <- qr_1var
+}
+
+qr_means_slope <- function(ddbb_input) {
+  medias <- c()
+  CI <- c()
+  mins <- c()
+  maxs <- c()
+  pval_sig <- c()
+  pares <- seq(2, 200, by = 2)
+  media_value <- mean(ddbb_input[pares,"Value"]) 
+  medias <- c(medias, media_value)
+  CI_values <- quantile(ddbb_input[pares,"Value"], probs=c(0.025, 0.5, 0.975))
+  CI <- rbind(CI, CI_values)
+  min_values <- min(ddbb_input[pares,"Value"])
+  mins <- c(mins, min_values)
+  max_values <- max(ddbb_input[pares,"Value"])
+  maxs <- c(maxs, max_values)
+  pval_value <- length(which(ddbb_input[pares, "Pr(>|t|)"]< 0.05))
+  pval_sig <- c(pval_sig, pval_value)
+  qr_summaries <- c(vari_names[[i]], medias, mins, maxs, CI[,1], CI[,2], CI[,3], pval_sig)
+  return(qr_summaries)
+}
+
+qrmean_all <- NULL
+for (i in 1:length(qr_all)) {
+  qrmeans <- qr_means_slope(qr_all[[i]])
+  qrmean_all <- rbind(qrmean_all, qrmeans)
+}
+qrmean_all <- as.data.frame(qrmean_all)
+colnames(qrmean_all) <- c("Name", "Mean", "Min", "Max", "Lower95", "Median", "Upper95", "N_pvalsig")
+for (i in 2:7) {
+  qrmean_all[,i] <- as.numeric(qrmean_all[,i])
+}
+
+### Slope decay plot
+#setwd("./Figures/Figure_09regression")
+#pdf("Slope_decress.pdf", useDingbats = F, width = 10, height = 7)
+ggplot(qrmean_all[c(1,2,3,6,9,15),], aes(1:6, -Median)) +
+  xlab("") +
+  #ylim(0,2.5) +
+  ylab("") +
+  theme_classic() +
+  geom_line() +
+  geom_line(data = qrmean_all[c(1,2,3,6,9,12),], color = "black") +
+  geom_line(data = qrmean_all[c(1,2,4,7,10,16),], color = "honeydew4") +
+  geom_line(data = qrmean_all[c(1,2,4,7,10,13),], color = "honeydew4") +
+  geom_line(data = qrmean_all[c(1,2,5,8,11,17),], color = "honeydew3") +
+  geom_line(data = qrmean_all[c(1,2,5,8,11,14),], color = "honeydew3") +
+  geom_ribbon(data = qrmean_all[c(1,2,3,6,9,15),], aes(ymin = -Lower95, ymax=-Upper95), fill = "black", alpha = 0.2) +
+  geom_ribbon(data = qrmean_all[c(1,2,3,6,9,12),], aes(ymin = -Lower95, ymax=-Upper95), fill = "black", alpha = 0.2) +
+  geom_ribbon(data = qrmean_all[c(1,2,4,7,10,16),], aes(ymin = -Lower95, ymax=-Upper95), fill = "honeydew4", alpha = 0.2) +
+  geom_ribbon(data = qrmean_all[c(1,2,4,7,10,13),], aes(ymin = -Lower95, ymax=-Upper95), fill = "honeydew4", alpha = 0.2) +
+  geom_ribbon(data = qrmean_all[c(1,2,5,8,11,17),], aes(ymin = -Lower95, ymax=-Upper95), fill = "honeydew3", alpha = 0.2) +
+  geom_ribbon(data = qrmean_all[c(1,2,5,8,11,14),], aes(ymin = -Lower95, ymax=-Upper95), fill = "honeydew3", alpha = 0.2)
+#dev.off()
+
+qr_means_inter <- function(ddbb_input) {
+  medias <- c()
+  CI <- c()
+  mins <- c()
+  maxs <- c()
+  impares <- seq(1, 60, by = 2)
+  media_value <- mean(ddbb_input[impares,"Value"]) 
+  medias <- c(medias, media_value)
+  CI_values <- quantile(ddbb_input[impares,"Value"], probs=c(0.025, 0.5, 0.975))
+  CI <- rbind(CI, CI_values)
+  min_values <- min(ddbb_input[impares,"Value"])
+  mins <- c(mins, min_values)
+  max_values <- max(ddbb_input[impares,"Value"])
+  maxs <- c(maxs, max_values)
+  qr_summaries <- c(vari_names[[i]], medias, mins, maxs, CI[,1], CI[,2], CI[,3])
+  return(qr_summaries)
+}
+
+
+qrmean_all_inter <- NULL
+for (i in 1:length(qr_all)) {
+  qrmeans <- qr_means_inter(qr_all[[i]])
+  qrmean_all_inter <- rbind(qrmean_all_inter, qrmeans)
+}
+qrmean_all_inter <- as.data.frame(qrmean_all_inter)
+colnames(qrmean_all_inter) <- c("Name", "Mean", "Min", "Max", "Lower95", "Median", "Upper95")
+for (i in 2:7) {
+  qrmean_all_inter[,i] <- as.numeric(qrmean_all_inter[,i])
+}
+
+
+### 0.9 quantile regressions plots
+ribbons_plot <- list()
+xlims_plot <- list()
+ylims_plot <- list()
+for (i in 1:17) {
+  print(i)
+  val_intcpt <- c(qrmean_all_inter[i,5], qrmean_all_inter[i,7])
+  val_ss <- c(qrmean_all[i,5], qrmean_all[i,7])
+  ss <- c(val_ss, rev(val_ss))
+  p.prueba <- ggplot(mam_r_dfforplot, aes(abs(Longlat), Richness)) + geom_blank() +
+    xlim(0, 90) +
+    xlab("") +
+    ylim(0,200) +
+    ylab("") +
+    theme_classic() +
+    geom_abline(aes(intercept=qrmean_all_inter[i,6], slope=qrmean_all[i,6], color = "1.Original"), lwd=1) +
+    geom_abline(aes(intercept=qrmean_all_inter[i,7], slope=qrmean_all[i,7]), linetype = 'dotted', lwd=1) +
+    geom_abline(aes(intercept=qrmean_all_inter[i,5], slope=qrmean_all[i,5]), linetype = 'dotted', lwd=1) +
+    scale_colour_manual(values = rev(my_colours))
+  p_x <- layer_scales(p.prueba)$x$get_limits()
+  p_y <- layer_scales(p.prueba)$y$get_limits()
+  df <- data.frame(
+    x = rep(c(p_x[1] - (p_x[2] - p_x[1]),
+              p_x[2] + (p_x[2] - p_x[1])), each = 2),
+    intcpt = c(val_intcpt, rev(val_intcpt))
+  ) %>%
+    mutate(y = intcpt + ss * x)
+  ribbons_plot[[i]] <- df
+  xlims_plot[[i]] <- p_x
+  ylims_plot[[i]] <- p_y
+}
+
+#Y ploteamos
+p <- ggplot(mam_r_dfforplot, aes(abs(Longlat), Richness)) + geom_blank() +
+  #xlim(0, 200) +
+  xlab("") +
+  #ylim(0,200) +
+  ylab("") +
+  theme_classic() +
+  geom_abline(aes(intercept=qrmean_all_inter[1,6], slope=qrmean_all[1,6], color = "1.Original"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[1,7], slope=qrmean_all[1,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[1,5], slope=qrmean_all[1,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[2,6], slope=qrmean_all[2,6],color = "2.UcS"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[2,7], slope=qrmean_all[2,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[2,5], slope=qrmean_all[2,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[3,6], slope=qrmean_all[3,6], color = "3.Range size"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[3,7], slope=qrmean_all[3,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[3,5], slope=qrmean_all[3,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[6,6], slope=qrmean_all[6,6], color = "4.Body size"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[6,7], slope=qrmean_all[6,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[6,5], slope=qrmean_all[6,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[9,6], slope=qrmean_all[9,6],color = "5. Fossil"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[9,7], slope=qrmean_all[9,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[9,5], slope=qrmean_all[9,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[12,6], slope=qrmean_all[12,6],color = "6. Taxonomy1"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[12,7], slope=qrmean_all[12,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[12,5], slope=qrmean_all[12,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[15,6], slope=qrmean_all[15,6],color = "7. Taxonomy2"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[15,7], slope=qrmean_all[15,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[15,5], slope=qrmean_all[15,5]), linetype = 'blank', lwd=1) +
+  annotate(geom = "polygon", x = ribbons_plot[[1]]$x, y = ribbons_plot[[1]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[1]) +
+  coord_cartesian(xlim = xlims_plot[[1]], ylim = ylims_plot[[1]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[2]]$x, y = ribbons_plot[[2]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[2]) +
+  coord_cartesian(xlim = xlims_plot[[2]], ylim = ylims_plot[[2]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[3]]$x, y = ribbons_plot[[3]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[3]) +
+  coord_cartesian(xlim = xlims_plot[[3]], ylim = ylims_plot[[3]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[6]]$x, y = ribbons_plot[[6]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[4]) +
+  coord_cartesian(xlim = xlims_plot[[6]], ylim = ylims_plot[[6]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[9]]$x, y = ribbons_plot[[9]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[5]) +
+  coord_cartesian(xlim = xlims_plot[[9]], ylim = ylims_plot[[9]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[12]]$x, y = ribbons_plot[[12]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[6]) +
+  coord_cartesian(xlim = xlims_plot[[12]], ylim = ylims_plot[[12]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[15]]$x, y = ribbons_plot[[15]]$y, alpha = 0.15,
+           fill = rev(my_colours)[7]) +
+  coord_cartesian(xlim = xlims_plot[[15]], ylim = ylims_plot[[15]]) +
+  scale_colour_manual(values = rev(my_colours)) +
+  scale_x_continuous(breaks = c(0, 20, 40, 60, 80, 90), expand = expansion(mult = c(0, 0))) + 
+  scale_y_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200), expand = expansion(mult = c(0, 0)))
+
+#pdf("09reg_75.pdf", useDingbats = F, width = 10, height = 7)
+p
+#dev.off()
+
+
+p2 <- ggplot(mam_r_dfforplot, aes(abs(Longlat), Richness)) + geom_blank() +
+  #xlim(0, 200) +
+  xlab("") +
+  #ylim(0,200) +
+  ylab("") +
+  theme_classic() +
+  geom_abline(aes(intercept=qrmean_all_inter[1,6], slope=qrmean_all[1,6], color = "1.Original"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[1,7], slope=qrmean_all[1,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[1,5], slope=qrmean_all[1,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[2,6], slope=qrmean_all[2,6],color = "2.UcS"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[2,7], slope=qrmean_all[2,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[2,5], slope=qrmean_all[2,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[4,6], slope=qrmean_all[4,6], color = "3.Range size"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[4,7], slope=qrmean_all[4,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[4,5], slope=qrmean_all[4,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[7,6], slope=qrmean_all[7,6], color = "4.Body size"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[7,7], slope=qrmean_all[7,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[7,5], slope=qrmean_all[7,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[10,6], slope=qrmean_all[10,6],color = "5. Fossil"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[10,7], slope=qrmean_all[10,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[10,5], slope=qrmean_all[10,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[13,6], slope=qrmean_all[13,6],color = "6. Taxonomy1"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[13,7], slope=qrmean_all[13,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[13,5], slope=qrmean_all[13,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[16,6], slope=qrmean_all[16,6],color = "7. Taxonomy2"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[16,7], slope=qrmean_all[16,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[16,5], slope=qrmean_all[16,5]), linetype = 'blank', lwd=1) +
+  annotate(geom = "polygon", x = ribbons_plot[[1]]$x, y = ribbons_plot[[1]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[1]) +
+  coord_cartesian(xlim = xlims_plot[[1]], ylim = ylims_plot[[1]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[2]]$x, y = ribbons_plot[[2]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[2]) +
+  coord_cartesian(xlim = xlims_plot[[2]], ylim = ylims_plot[[2]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[4]]$x, y = ribbons_plot[[4]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[3]) +
+  coord_cartesian(xlim = xlims_plot[[4]], ylim = ylims_plot[[4]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[7]]$x, y = ribbons_plot[[7]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[4]) +
+  coord_cartesian(xlim = xlims_plot[[7]], ylim = ylims_plot[[7]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[10]]$x, y = ribbons_plot[[10]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[5]) +
+  coord_cartesian(xlim = xlims_plot[[10]], ylim = ylims_plot[[10]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[13]]$x, y = ribbons_plot[[13]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[6]) +
+  coord_cartesian(xlim = xlims_plot[[13]], ylim = ylims_plot[[13]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[16]]$x, y = ribbons_plot[[16]]$y, alpha = 0.15,
+           fill = rev(my_colours)[7]) +
+  coord_cartesian(xlim = xlims_plot[[16]], ylim = ylims_plot[[16]]) +
+  scale_colour_manual(values = rev(my_colours)) +
+  scale_x_continuous(breaks = c(0, 20, 40, 60, 80, 90), expand = expansion(mult = c(0, 0))) + 
+  scale_y_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200), expand = expansion(mult = c(0, 0)))
+
+#pdf("09reg_50.pdf", useDingbats = F, width = 10, height = 7)
+p2
+#dev.off()
+
+
+p3 <- ggplot(mam_r_dfforplot, aes(abs(Longlat), Richness)) + geom_blank() +
+  #xlim(0, 200) +
+  xlab("") +
+  #ylim(0,200) +
+  ylab("") +
+  theme_classic() +
+  geom_abline(aes(intercept=qrmean_all_inter[1,6], slope=qrmean_all[1,6], color = "1.Original"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[1,7], slope=qrmean_all[1,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[1,5], slope=qrmean_all[1,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[2,6], slope=qrmean_all[2,6],color = "2.UcS"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[2,7], slope=qrmean_all[2,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[2,5], slope=qrmean_all[2,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[5,6], slope=qrmean_all[5,6], color = "3.Range size"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[5,7], slope=qrmean_all[5,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[5,5], slope=qrmean_all[5,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[8,6], slope=qrmean_all[8,6], color = "4.Body size"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[8,7], slope=qrmean_all[8,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[8,5], slope=qrmean_all[8,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[11,6], slope=qrmean_all[11,6],color = "5. Fossil"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[11,7], slope=qrmean_all[11,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[11,5], slope=qrmean_all[11,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[14,6], slope=qrmean_all[14,6],color = "6. Taxonomy1"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[14,7], slope=qrmean_all[14,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[14,5], slope=qrmean_all[14,5]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[17,6], slope=qrmean_all[17,6],color = "7. Taxonomy2"), lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[17,7], slope=qrmean_all[17,7]), linetype = 'blank', lwd=1) +
+  geom_abline(aes(intercept=qrmean_all_inter[17,5], slope=qrmean_all[17,5]), linetype = 'blank', lwd=1) +
+  annotate(geom = "polygon", x = ribbons_plot[[1]]$x, y = ribbons_plot[[1]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[1]) +
+  coord_cartesian(xlim = xlims_plot[[1]], ylim = ylims_plot[[1]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[2]]$x, y = ribbons_plot[[2]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[2]) +
+  coord_cartesian(xlim = xlims_plot[[2]], ylim = ylims_plot[[2]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[5]]$x, y = ribbons_plot[[5]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[3]) +
+  coord_cartesian(xlim = xlims_plot[[5]], ylim = ylims_plot[[5]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[8]]$x, y = ribbons_plot[[8]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[4]) +
+  coord_cartesian(xlim = xlims_plot[[8]], ylim = ylims_plot[[8]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[11]]$x, y = ribbons_plot[[11]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[5]) +
+  coord_cartesian(xlim = xlims_plot[[11]], ylim = ylims_plot[[11]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[14]]$x, y = ribbons_plot[[14]]$y, alpha = 0.15, 
+           fill = rev(my_colours)[6]) +
+  coord_cartesian(xlim = xlims_plot[[14]], ylim = ylims_plot[[14]]) +
+  annotate(geom = "polygon", x = ribbons_plot[[17]]$x, y = ribbons_plot[[17]]$y, alpha = 0.15,
+           fill = rev(my_colours)[7]) +
+  coord_cartesian(xlim = xlims_plot[[17]], ylim = ylims_plot[[17]]) +
+  scale_colour_manual(values = rev(my_colours)) +
+  scale_x_continuous(breaks = c(0, 20, 40, 60, 80, 90), expand = expansion(mult = c(0, 0))) + 
+  scale_y_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200), expand = expansion(mult = c(0, 0)))
+
+#pdf("09reg_25.pdf", useDingbats = F, width = 10, height = 7)
+p3
+#dev.off()
+
+#pdf("09reg_75_zoom.pdf", useDingbats = F, width = 10, height = 7)
+p + coord_cartesian(xlim = c(0,5), ylim= c(160,180))
+#dev.off()
+#pdf("09reg_50_zoom.pdf", useDingbats = F, width = 10, height = 7)
+p2 + coord_cartesian(xlim = c(0,5), ylim= c(160,180))
+#dev.off()
+#pdf("09reg_25_zoom.pdf", useDingbats = F, width = 10, height = 7)
+p3 + coord_cartesian(xlim = c(0,5), ylim= c(160,180))
+#dev.off()
+
+
+#75%
+sloss_75 <- c(1-(qrmean_all[2,6]/qrmean_all[1,6]),
+              1-(qrmean_all[3,6]/qrmean_all[2,6]),
+              1-(qrmean_all[6,6]/qrmean_all[3,6]),
+              1-(qrmean_all[9,6]/qrmean_all[6,6]),
+              1-(qrmean_all[15,6]/qrmean_all[9,6]),
+              1-(qrmean_all[12,6]/qrmean_all[9,6]))
+#50%
+sloss_50 <- c(1-(qrmean_all[2,6]/qrmean_all[1,6]),
+              1-(qrmean_all[4,6]/qrmean_all[2,6]),
+              1-(qrmean_all[7,6]/qrmean_all[4,6]),
+              1-(qrmean_all[10,6]/qrmean_all[7,6]),
+              1-(qrmean_all[16,6]/qrmean_all[10,6]),
+              1-(qrmean_all[13,6]/qrmean_all[10,6]))
+#50%
+sloss_25 <- c(1-(qrmean_all[2,6]/qrmean_all[1,6]),
+              1-(qrmean_all[5,6]/qrmean_all[2,6]),
+              1-(qrmean_all[8,6]/qrmean_all[5,6]),
+              1-(qrmean_all[11,6]/qrmean_all[8,6]),
+              1-(qrmean_all[17,6]/qrmean_all[11,6]),
+              1-(qrmean_all[14,6]/qrmean_all[11,6]))
