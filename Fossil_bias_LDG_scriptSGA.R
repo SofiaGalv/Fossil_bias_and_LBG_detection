@@ -1,10 +1,14 @@
 # ------------------------------------------------------------------------------
 # Publication: Biases can't hide conspicuous biodiversity patterns 
-# Last updated: 2024-07-11
+# Last updated: 2024-07-15
 # Author: Sofia Galvan
 # Email: sofia.galvan@uvigo.es
 # Repository: https://github.com/SofiaGalv/Fossil_bias_and_LBG_detection.git
 # ------------------------------------------------------------------------------
+
+################################################################################
+###################### MAIN TEXT BIAS-SIMULATING WORKFLOW ######################
+################################################################################
 
 library(devtools)
 library(dplyr)
@@ -119,12 +123,10 @@ colnames(mam_df_2)[colnames(mam_df_2) == "V5706"] <- "GUM_USC"
 mam_df_2[,5707] <- wc_column[,3] #Add WordClim column
 colnames(mam_df_2)[colnames(mam_df_2) == "V5707"] <- "WC_zone" 
 
-
 richness <- rowSums(mam_df_2[,3:5703]) #Add richness richness column
 mam_df_2[,5708] <- richness
 colnames(mam_df_2)[colnames(mam_df_2) == "V5708"] <- "Richness"
 mam_df_2[mam_df_2$Richness == 0, 5708] <- NA
-
 
 matr <- matrix(c(1,5,1), ncol = 3, byrow = T) #Add land surface column
 Land <- classify(wc_raster, matr, include.lowest = T)
@@ -132,7 +134,6 @@ Land_col <- terra::as.data.frame(Land, xy = T, na.rm = F)
 Land_col[is.nan(Land_col$lyr.1), 3] <- NA
 mam_df_2[,5709] <- Land_col[,3]
 colnames(mam_df_2)[colnames(mam_df_2) == "V5709"] <- "Land"
-
 
 area_raster <- terra::cellSize(wc_raster, mask = T, unit = "km") # Add area column
 area_column <- terra::as.data.frame(area_raster, xy = T, na.rm = F)
@@ -144,7 +145,7 @@ colnames(mam_df_2)[5710] <- "Area"
 #For calculating spp range size
 mam_forange <- mam_df_2[mam_df_2$Land == 1 & !is.na(mam_df_2$Land),]
 mam_forange <- mam_forange[, is.na(colSums(mam_forange)) | colSums(mam_forange !=0, na.rm = T) > 0]
-setdiff(colnames(mam_df_2), colnames(mam_forange)) #2 spp lost Land mask
+setdiff(colnames(mam_df_2), colnames(mam_forange)) #2 spp lost by Land mask
 
 for (i in 3:5701) { 
   print(i)
@@ -173,7 +174,8 @@ identical(sort(unique_Mam$lng), sort(table_Mam$lng)) #T
 identical(sort(unique_Mam$lat), sort(table_Mam$lat)) #T
 table_Mam <- data.frame(table_Mam[,2], table_Mam[,1], table_Mam[,3])
 colnames(table_Mam) <- c("x", "y", "occ")
-Mam_raster <- terra::rasterize(x = as.matrix(table_Mam[,1:2]), y = as(x, "SpatRaster"), 
+Mam_raster <- terra::rasterize(x = as.matrix(table_Mam[,1:2]), 
+                               y = as(x, "SpatRaster"), 
                                values = table_Mam[,3], update = T)
 plot(Mam_raster,col = rev(grDevices::topo.colors(50)))
 
@@ -493,21 +495,22 @@ for (i in 3:2638) {
   if(any(unique(Mam_75fos_f5[,i]) == 1, na.rm = T)) {
     spp_number <- spp_number + 1
   } 
-}
+} #Richness values stored in "richness_perzone_UcS2.csv"
 
 spp_number <- 0
 for (i in 3:1177) {
   if(any(unique(Mam_50fos_f5[,i]) == 1, na.rm = T)) {
     spp_number <- spp_number + 1
   } 
-}
+}#Richness values stored in "richness_perzone_UcS2.csv"
 
 spp_number <- 0
 for (i in 3:297) {
   if(any(unique(Mam_25fos_f5[,i]) == 1, na.rm = T)) {
     spp_number <- spp_number + 1
   } 
-}
+}#Richness values stored in "richness_perzone_UcS2.csv"
+
 
 ########################### 2 taxonomic filters ################################
 
@@ -515,36 +518,29 @@ for (i in 3:297) {
 Mam_pbdb[Mam_pbdb$genus == "Aotus", "family"] <- "Aotidae"
 Mam_pbdb[Mam_pbdb$genus == "Xenothrix", "family"] <- "Aotidae"
 Mam_pbdb[Mam_pbdb$genus == "Insulacebus", "family"] <- "Aotidae"
-
 Mam_pbdb[Mam_pbdb$family == "Aplodontidae", "family"] <- "Aplodontiidae"
-
 Mam_pbdb[Mam_pbdb$genus == "Patasola", "family"] <- "Callitrichidae"
 Mam_pbdb[Mam_pbdb$genus == "Lagonimico", "family"] <- "Callitrichidae"
 Mam_pbdb[Mam_pbdb$genus == "Micodon", "family"] <- "Callitrichidae"
 Mam_pbdb[Mam_pbdb$genus == "Cebuella", "family"] <- "Callitrichidae"
 Mam_pbdb[Mam_pbdb$genus == "Saguinus", "family"] <- "Callitrichidae"
 Mam_pbdb[Mam_pbdb$genus == "Callimico", "family"] <- "Callitrichidae"
-
 #Cistugidae = NO 
 Mam_pbdb[Mam_pbdb$family == "Galeopithecidae", "family"] <- "Cynocephalidae"
-
 Mam_pbdb[Mam_pbdb$genus == "Galidia", "family"] <- "Eupleridae"
-
 Mam_pbdb[Mam_pbdb$genus == "Miniopterus", "family"] <- "Miniopteridae"
-
 #Nandiniidae = NO
 Mam_pbdb[Mam_pbdb$genus == "Neocometes", "family"] <- "Platacanthomyidae"
 Mam_pbdb[Mam_pbdb$genus == "Platacanthomys", "family"] <- "Platacanthomyidae"
 Mam_pbdb[Mam_pbdb$genus == "Typhlomys", "family"] <- "Platacanthomyidae"
 
 
-### 75%
+##### 75% preservation rate
 Mam_fos_names <- names(which(colSums(Mam_75fos[,3:2638]) != 0))
 Combi_75fos <- Combi_75bs[Combi_75bs$iucn2020_binomial %in% Mam_fos_names,] #2022 spp
 spp_Combir <- sort(setdiff(unique(Combi_75fos$family), unique(Mam_pbdb$family)))
 #3 families in Combi_75bs are not in Mam_pbdb
 sort(table(Combi_75fos[Combi_75fos$family %in% spp_Combir, "family"])) #En total, 4 spp
-
 spp_Mampbdb <- sort(setdiff(unique(Mam_pbdb$family), unique(Combi_75fos$family)))
 #488 families in Mam_pbdb are not in Combi_75fos
 
@@ -562,11 +558,12 @@ for (i in 1:length(family_names)) {
 
 ## Taxonomic weighted
 set.seed(288)
-tax75 <- sample(seq_len(nrow(Combi_75fos)), round(0.75*nrow(Combi_75fos)), prob = Combi_75fos$Fam_obs)
+tax75 <- sample(seq_len(nrow(Combi_75fos)), round(0.75*nrow(Combi_75fos)), 
+                prob = Combi_75fos$Fam_obs)
 Combi_75tax <- Combi_75fos[tax75,] #1514
-Mam_75tax <- Mam_75fos[,c("X", "Y",Combi_75tax$iucn2020_binomial, "Land_mass", "Clim_zone",
-                          "GUM_USC", "WC_zone", "Richness", "Land", "Area", "Fossils",
-                          "Richness2","Richness3")] #1526
+Mam_75tax <- Mam_75fos[,c("X", "Y",Combi_75tax$iucn2020_binomial, "Land_mass", 
+                          "Clim_zone", "GUM_USC", "WC_zone", "Richness", "Land", 
+                          "Area", "Fossils", "Richness2","Richness3")] #1526
 identical(sort(colnames(Mam_75tax[,3:1516])), sort(Combi_75tax$iucn2020_binomial)) #T
 
 richness <- apply(Mam_75tax[,3:1516], 1, function(x) length(x[x>0]))
@@ -575,7 +572,8 @@ colnames(Mam_75tax)[colnames(Mam_75tax) == "V1527"] <- "Richness4" #New column
 Mam_75tax[Mam_75tax$Richness4 == 0, 1527] <- NA
 
 Mam_75tax_fr <- Mam_75tax[,c("X", "Y", "Richness4")]
-Mam_75tax_raster <- terra::rasterize(x = as.matrix(Mam_75tax_fr[,1:2]), y = as(x, "SpatRaster"), 
+Mam_75tax_raster <- terra::rasterize(x = as.matrix(Mam_75tax_fr[,1:2]), 
+                                     y = as(x, "SpatRaster"), 
                                      values = Mam_75tax_fr[,3], update = T)
 crs(Mam_75tax_raster) <- "+proj=longlat +datum=WGS84 +no_defs"
 
@@ -584,21 +582,23 @@ crs(Mam_75tax_raster) <- "+proj=longlat +datum=WGS84 +no_defs"
 sort(Mam_pbdb3$n_obs, decreasing = T)[[89]]
 my_families <- Mam_pbdb3[Mam_pbdb3$n_obs >=23,1]
 Combi_fos2 <- Combi_75fos[Combi_75fos$family %in% my_families,]
-Mam_75tax2 <- Mam_75fos[,c("X", "Y",Combi_fos2$iucn2020_binomial, "Land_mass", "Clim_zone",
-                           "GUM_USC", "WC_zone", "Richness", "Land", "Area", "Fossils", 
-                           "Richness2","Richness3")] 
+Mam_75tax2 <- Mam_75fos[,c("X", "Y",Combi_fos2$iucn2020_binomial, "Land_mass", 
+                           "Clim_zone", "GUM_USC", "WC_zone", "Richness", "Land", 
+                           "Area", "Fossils", "Richness2","Richness3")] 
 identical(sort(colnames(Mam_75tax2[,3:1902])), sort(Combi_fos2$iucn2020_binomial)) #T
+
 richness <- apply(Mam_75tax2[,3:1902], 1, function(x) length(x[x>0]))
 Mam_75tax2[,1913] <- richness
 colnames(Mam_75tax2)[colnames(Mam_75tax2) == "V1913"] <- "Richness4" #New column
 Mam_75tax2[Mam_75tax2$Richness4 == 0, 1913] <- NA
+
 Mam_75tax2_fr <- Mam_75tax2[,c("X", "Y", "Richness4")]
 Mam_75tax2_raster <- terra::rasterize(x = as.matrix(Mam_75tax2_fr[,1:2]), y = as(x, "SpatRaster"), 
                                       values = Mam_75tax2_fr[,3], update = T)
 crs(Mam_75tax2_raster) <- "+proj=longlat +datum=WGS84 +no_defs"
 
 
-### 50%
+##### 50% preservation rate
 Mam_50fos_names <- names(which(colSums(Mam_50fos[,3:1177]) != 0))
 Combi_50fos <- Combi_50bs[Combi_50bs$iucn2020_binomial %in% Mam_50fos_names,] #1022 spp
 spp_Combi50fos <- sort(setdiff(unique(Combi_50fos$family), unique(Mam_pbdb$family)))
@@ -610,11 +610,9 @@ spp_Mampbdb <- sort(setdiff(unique(Mam_pbdb$family), unique(Combi_50fos$family))
 
 Combi_50fos <- Combi_50fos[!Combi_50fos$family %in% spp_Combi50fos,] #1020 obs 105 families, -2 spp
 Mam_pbdb50fos <- Mam_pbdb[!Mam_pbdb$family %in% spp_Mampbdb,] #65928 obs, 501 lost families = 105 families
-
 Mam_pbdb50fos <- as.data.frame(table(Mam_pbdb50fos$family))
 colnames(Mam_pbdb50fos) <- c("family", "n_obs")
 Mam_pbdb50fos$family <- as.character(Mam_pbdb50fos$family)
-
 Combi_50fos$Fam_obs <- NA
 family_names <- unique(Mam_pbdb50fos$family)
 for (i in 1:length(family_names)) {
@@ -622,13 +620,14 @@ for (i in 1:length(family_names)) {
               "Fam_obs"] <- Mam_pbdb50fos[Mam_pbdb50fos$family == family_names[[i]], "n_obs"]
 }
 
-#Taxonomic weighted
+## Taxonomic weighted
 set.seed(288)
-tax50 <- sample(seq_len(nrow(Combi_50fos)), round(0.50*nrow(Combi_50fos)), prob = Combi_50fos$Fam_obs)
+tax50 <- sample(seq_len(nrow(Combi_50fos)), round(0.50*nrow(Combi_50fos)), 
+                prob = Combi_50fos$Fam_obs)
 Combi_50tax <- Combi_50fos[tax50,] #510
-Mam_50tax <- Mam_50fos[,c("X", "Y",Combi_50tax$iucn2020_binomial, "Land_mass", "Clim_zone",
-                          "GUM_USC", "WC_zone", "Richness", "Land", "Area", "Fossils", 
-                          "Richness2","Richness3")] 
+Mam_50tax <- Mam_50fos[,c("X", "Y",Combi_50tax$iucn2020_binomial, "Land_mass", 
+                          "Clim_zone", "GUM_USC", "WC_zone", "Richness", "Land", 
+                          "Area", "Fossils", "Richness2","Richness3")] 
 identical(sort(colnames(Mam_50tax[,3:512])), sort(Combi_50tax$iucn2020_binomial)) #T
 
 richness <- apply(Mam_50tax[,3:512], 1, function(x) length(x[x>0]))
@@ -637,19 +636,20 @@ colnames(Mam_50tax)[colnames(Mam_50tax) == "V523"] <- "Richness4" #New column
 Mam_50tax[Mam_50tax$Richness4 == 0, 524] <- NA
 
 Mam_50tax_fr <- Mam_50tax[,c("X", "Y", "Richness4")]
-Mam_50tax_raster <- terra::rasterize(x = as.matrix(Mam_50tax_fr[,1:2]), y = as(x, "SpatRaster"), 
+Mam_50tax_raster <- terra::rasterize(x = as.matrix(Mam_50tax_fr[,1:2]), 
+                                     y = as(x, "SpatRaster"), 
                                      values = Mam_50tax_fr[,3], update = T)
 crs(Mam_50tax_raster) <- "+proj=longlat +datum=WGS84 +no_defs"
 
-#Taxonomic "whole-families"
+## Taxonomic "whole-families"
 round(0.5*nrow(Mam_pbdb50fos)) #52 familias
 sort(Mam_pbdb50fos$n_obs, decreasing = T)[[52]]
 my_families <- Mam_pbdb50fos[Mam_pbdb50fos$n_obs >=133,1]
 Combi_50fos2 <- Combi_50fos[Combi_50fos$family %in% my_families,]
 
-Mam_50tax2 <- Mam_50fos[,c("X", "Y",Combi_50fos2$iucn2020_binomial, "Land_mass", "Clim_zone",
-                           "GUM_USC", "WC_zone", "Richness", "Land", "Area", "Fossils", 
-                           "Richness2","Richness3")] 
+Mam_50tax2 <- Mam_50fos[,c("X", "Y",Combi_50fos2$iucn2020_binomial, "Land_mass", 
+                           "Clim_zone", "GUM_USC", "WC_zone", "Richness", "Land", 
+                           "Area", "Fossils", "Richness2","Richness3")] 
 identical(sort(colnames(Mam_50tax2[,3:835])), sort(Combi_50fos2$iucn2020_binomial)) #T
 
 richness <- apply(Mam_50tax2[,3:835], 1, function(x) length(x[x>0]))
@@ -658,41 +658,39 @@ colnames(Mam_50tax2)[colnames(Mam_50tax2) == "V846"] <- "Richness4" #New column
 Mam_50tax2[Mam_50tax2$Richness4 == 0, 846] <- NA
 
 Mam_50tax2_fr <- Mam_50tax2[,c("X", "Y", "Richness4")]
-Mam_50tax2_raster <- terra::rasterize(x = as.matrix(Mam_50tax2_fr[,1:2]), y = as(x, "SpatRaster"), 
+Mam_50tax2_raster <- terra::rasterize(x = as.matrix(Mam_50tax2_fr[,1:2]), 
+                                      y = as(x, "SpatRaster"), 
                                       values = Mam_50tax2_fr[,3], update = T)
 crs(Mam_50tax2_raster) <- "+proj=longlat +datum=WGS84 +no_defs"
 
-####################### 25%
+###### 25% preservation rate
 Mam_25fos_names <- names(which(colSums(Mam_25fos[,3:297]) != 0))
 Combi_25fos <- Combi_25bs[Combi_25bs$iucn2020_binomial %in% Mam_25fos_names,] #274 spp
 spp_Combi25fos <- sort(setdiff(unique(Combi_25fos$family), unique(Mam_pbdb$family)))
 #1 familie in Combi_25fos is not Mam_pbdb
 sort(table(Combi_25fos[Combi_25fos$family %in% spp_Combi25fos, "family"])) #1 spp
-
 spp_Mampbdb <- sort(setdiff(unique(Mam_pbdb$family), unique(Combi_25fos$family)))
 #546 families in Mam_pbdb are not in Combi_r
 
 Combi_25fos <- Combi_25fos[!Combi_25fos$family %in% spp_Combi25fos,] #273 obs, 60 families, - 1 spp 
 Mam_pbdb25fos <- Mam_pbdb[!Mam_pbdb$family %in% spp_Mampbdb,] #53037 obs, 546 lost families = 60 families
-
 Mam_pbdb25fos <- as.data.frame(table(Mam_pbdb25fos$family))
 colnames(Mam_pbdb25fos) <- c("family", "n_obs")
 Mam_pbdb25fos$family <- as.character(Mam_pbdb25fos$family)
-
 Combi_25fos$Fam_obs <- NA
 family_names <- unique(Mam_pbdb25fos$family)
 for (i in 1:length(family_names)) {
   Combi_25fos[Combi_25fos$family == family_names[[i]], "Fam_obs"] <- Mam_pbdb25fos[Mam_pbdb25fos$family == family_names[[i]], "n_obs"]
 }
 
-
-#Taxonomic weighted
+## Taxonomic weighted
 set.seed(288)
-tax25 <- sample(seq_len(nrow(Combi_25fos)), round(0.25*nrow(Combi_25fos)), prob = Combi_25fos$Fam_obs)
+tax25 <- sample(seq_len(nrow(Combi_25fos)), round(0.25*nrow(Combi_25fos)), 
+                prob = Combi_25fos$Fam_obs)
 Combi_25tax <- Combi_25fos[tax25,] #68
-Mam_25tax <- Mam_25fos[,c("X", "Y",Combi_25tax$iucn2020_binomial, "Land_mass", "Clim_zone",
-                          "GUM_USC", "WC_zone", "Richness", "Land", "Area", "Fossils", 
-                          "Richness2","Richness3")] 
+Mam_25tax <- Mam_25fos[,c("X", "Y",Combi_25tax$iucn2020_binomial, "Land_mass", 
+                          "Clim_zone", "GUM_USC", "WC_zone", "Richness", "Land", 
+                          "Area", "Fossils", "Richness2","Richness3")] 
 identical(sort(colnames(Mam_25tax[,3:70])), sort(Combi_25tax$iucn2020_binomial)) #T
 
 richness <- apply(Mam_25tax[,3:70], 1, function(x) length(x[x>0]))
@@ -701,12 +699,13 @@ colnames(Mam_25tax)[colnames(Mam_25tax) == "V81"] <- "Richness4" #New column
 Mam_25tax[Mam_25tax$Richness4 == 0, 81] <- NA
 
 Mam_25tax_fr <- Mam_25tax[,c("X", "Y", "Richness4")]
-Mam_25tax_raster <- terra::rasterize(x = as.matrix(Mam_25tax_fr[,1:2]), y = as(x, "SpatRaster"), 
+Mam_25tax_raster <- terra::rasterize(x = as.matrix(Mam_25tax_fr[,1:2]), 
+                                     y = as(x, "SpatRaster"), 
                                      values = Mam_25tax_fr[,3], update = T)
 crs(Mam_25tax_raster) <- "+proj=longlat +datum=WGS84 +no_defs"
 
-#Taxonomic "whole-families"
-round(0.25*nrow(Mam_pbdb25fos)) #15 familias
+## Taxonomic "whole-families"
+round(0.25*nrow(Mam_pbdb25fos)) #15 families
 sort(Mam_pbdb25fos$n_obs, decreasing = T)[[15]]
 my_families <- Mam_pbdb25fos[Mam_pbdb25fos$n_obs >=1279,1]
 Combi_25fos2 <- Combi_25fos[Combi_25fos$family %in% my_families,]
@@ -721,13 +720,13 @@ Mam_25tax2[,172] <- richness
 colnames(Mam_25tax2)[colnames(Mam_25tax2) == "V172"] <- "Richness4" #New column
 Mam_25tax2[Mam_25tax2$Richness4 == 0, 172] <- NA
 
-
 Mam_25tax2_fr <- Mam_25tax2[,c("X", "Y", "Richness4")]
-Mam_25tax2_raster <- terra::rasterize(x = as.matrix(Mam_25tax2_fr[,1:2]), y = as(x, "SpatRaster"), 
+Mam_25tax2_raster <- terra::rasterize(x = as.matrix(Mam_25tax2_fr[,1:2]), 
+                                      y = as(x, "SpatRaster"), 
                                       values = Mam_25tax2_fr[,3], update = T)
 crs(Mam_25tax2_raster) <- "+proj=longlat +datum=WGS84 +no_defs"
 
-### Riqueza antes/despues
+### Richness before/after
 Mam_75tax$WC_zone <- as.factor(Mam_75tax$WC_zone)
 Mam_50tax$WC_zone <- as.factor(Mam_50tax$WC_zone)
 Mam_25tax$WC_zone <- as.factor(Mam_25tax$WC_zone)
@@ -753,21 +752,21 @@ for (i in 3:1516) {
   if(any(unique(Mam_75tax_f5[,i]) == 1, na.rm = T)) {
     spp_number <- spp_number + 1
   } 
-}
+}#Richness values stored in "richness_perzone_UcS2.csv"
 
 spp_number <- 0
 for (i in 3:512) {
   if(any(unique(Mam_50tax_f5[,i]) == 1, na.rm = T)) {
     spp_number <- spp_number + 1
   } 
-}
+}#Richness values stored in "richness_perzone_UcS2.csv"
 
 spp_number <- 0
 for (i in 3:70) {
   if(any(unique(Mam_25tax_f5[,i]) == 1, na.rm = T)) {
     spp_number <- spp_number + 1
   } 
-}
+}#Richness values stored in "richness_perzone_UcS2.csv"
 
 
 Mam_75tax2$WC_zone <- as.factor(Mam_75tax2$WC_zone)
@@ -795,26 +794,25 @@ for (i in 3:1902) {
   if(any(unique(Mam_75tax2_f5[,i]) == 1, na.rm = T)) {
     spp_number <- spp_number + 1
   } 
-}
+} #Richness values stored in "richness_perzone_UcS2.csv"
 
 spp_number <- 0
 for (i in 3:835) {
   if(any(unique(Mam_50tax2_f5[,i]) == 1, na.rm = T)) {
     spp_number <- spp_number + 1
   } 
-}
+}#Richness values stored in "richness_perzone_UcS2.csv"
 
 spp_number <- 0
 for (i in 3:161) {
   if(any(unique(Mam_25tax2_f5[,i]) == 1, na.rm = T)) {
     spp_number <- spp_number + 1
   } 
-}
+}#Richness values stored in "richness_perzone_UcS2.csv"
 
-
-#All richness values along the filter are stored in "richness_perzone_UcS2.csv"
 
 ############################## Plot LBG graphs #################################
+
 mam_r_moll <- terra::project(mam_raster, 
                              y = "+proj=moll +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84",
                              method = "near",
@@ -977,7 +975,6 @@ Mam50bsfos_moll_sf <- st_as_sf(Mam50bsfos_moll_df)
 Mam50bsfos_longlat_sf <- st_transform(Mam50bsfos_moll_sf, "+proj=longlat +datum=WGS84 +no_defs")
 Mam25bsfos_moll_sf <- st_as_sf(Mam25bsfos_moll_df)
 Mam25bsfos_longlat_sf <- st_transform(Mam25bsfos_moll_sf, "+proj=longlat +datum=WGS84 +no_defs")
-
 Mam_75tax_moll_sf <- st_as_sf(Mam_75tax_moll_df)
 Mam75tax_longlat_sf <- st_transform(Mam_75tax_moll_sf, "+proj=longlat +datum=WGS84 +no_defs")
 Mam_50tax_moll_sf <- st_as_sf(Mam_50tax_moll_df)
@@ -991,7 +988,6 @@ Mam50tax2_longlat_sf <- st_transform(Mam_50tax2_moll_sf, "+proj=longlat +datum=W
 Mam_25tax2_moll_sf <- st_as_sf(Mam_25tax2_moll_df)
 Mam25tax2_longlat_sf <- st_transform(Mam_25tax2_moll_sf, "+proj=longlat +datum=WGS84 +no_defs")
 
-#identical(mam_f_longlat_sf$lyr.1, mam_f_moll_sf$lyr.1) #TRUE
 #mam_r_sf_juntas <- cbind(mam_r_moll_sf, mam_r_longlat_sf$geometry)
 #mam_r_dfforplot <- as.data.frame(mam_r_sf_juntas$lyr.1)
 #for (i in 1:259200) {
@@ -1021,7 +1017,8 @@ colnames(db_forslopes) <- c("Longlat", "Moll", "Original", "UcS", "rs75", "rs50"
 ggplot(db_forslopes, aes(Longlat, tax2_25, color = tax2_25)) +
   geom_point(shape = 16,
              size = 3, alpha = 0.9) +
-  scale_colour_gradientn(colours = rev(paletteer_c("grDevices::YlOrBr", 400))[70:400], limits = c(1,239)) +
+  scale_colour_gradientn(colours = rev(paletteer_c("grDevices::YlOrBr", 400))[70:400], 
+                         limits = c(1,239)) +
   xlab("") +
   ylim(0,250) +
   ylab("") +
@@ -1030,8 +1027,8 @@ ggplot(db_forslopes, aes(Longlat, tax2_25, color = tax2_25)) +
   theme(legend.position = "none")
 #dev.off()
 
+
 ########################## Plot Taxonomic richnes map ##########################
-#setwd("./Figures/Figure_richness")
 rast_bc <- rast(nrows = 360, ncols = 720, resolution = 0.5, vals = 1,
                 extent = ext(-180, 180, -90, 90))
 rast_bc <- terra::project(rast_bc, 
@@ -1042,9 +1039,10 @@ sp_bc <- as.polygons(rast_bc)
 
 #pdf("Mam_75_taxwholefam.pdf", useDingbats = F)
 plot(sp_bc, axes = F)
-plot(land_moll$geometry, col = "grey30", border = "grey30", lwd=0.4, add = T) #, bg = "skyblue"
-terra::plot(Mam_75bs_moll, col = rev(paletteer_c("grDevices::YlOrBr", 400)), axes = F, 
-            range = c(0,250), pax = list(labels = F, tick = F), legend = F, add = T)
+plot(land_moll$geometry, col = "grey30", border = "grey30", lwd=0.4, add = T) 
+terra::plot(Mam_75bs_moll, col = rev(paletteer_c("grDevices::YlOrBr", 400)), 
+            axes = F, range = c(0,250), pax = list(labels = F, tick = F), 
+            legend = F, add = T)
 plot(land_moll$geometry, border = "grey30", add = T, lwd=0.4)
 #dev.off()
 
@@ -1151,11 +1149,13 @@ for (i in 1:16) {
   mam_df <- Mam_rich_total[,var_toplot[i]][2:6]
   df_forplot <- data.frame(mam_df, labels_toplot[[i]])
   colnames(df_forplot) <- c("value1", "labels_names")
-  df_forplot$labels_names <- factor(df_forplot$labels_names, levels = df_forplot$labels_names)
+  df_forplot$labels_names <- factor(df_forplot$labels_names, 
+                                    levels = df_forplot$labels_names)
   pl <- ggplot(df_forplot, 
                aes(x = labels_names, y = value1)) +
     geom_col(color = c("#f9d14a", "#ab3329", "#ed968c", "#7c4b73", "#88a0dc"), 
-             lwd = 1, fill = c("#f9d14a", "#ab3329", "#ed968c", "#7c4b73", "#88a0dc"), 
+             lwd = 1, 
+             fill = c("#f9d14a", "#ab3329", "#ed968c", "#7c4b73", "#88a0dc"), 
              width = 0.6) +
     labs(x = "", y = "Richness loss (%)") +
     theme_minimal() +
@@ -1164,22 +1164,21 @@ for (i in 1:16) {
   richloss_plots[[i]] <- pl
 }
 
-#setwd("./Figures/Figure_speciesloss")
 #pdf("fos75_taxf75_spploss.pdf", useDingbats = F)
 richloss_plots[[14]]
 #dev.off()
 
 #################### Correlation between area/richness loss ####################
-df_forcor <- as.data.frame(cbind(pixels_df$WC_zone, pixels_df$per_loss, Mam_rich_total$Original_UcS[2:6]))
+df_forcor <- as.data.frame(cbind(pixels_df$WC_zone, pixels_df$per_loss, 
+                                 Mam_rich_total$Original_UcS[2:6]))
 colnames(df_forcor) <- c("WC_zone", "Area_loss", "Sp_loss")
-#setwd("./Figures/Figure_arealoss")
+
 #pdf("Cor_UcS.pdf", useDingbats = F, width = 10, height = 7)
 ggplot(data = df_forcor, aes(x = Area_loss, y = Sp_loss)) +
-  geom_point(size = 4, alpha = 1, color = c("#f9d14a", "#ab3329", "#ed968c", "#7c4b73", "#88a0dc"))  +
+  geom_point(size = 4, alpha = 1, 
+             color = c("#f9d14a", "#ab3329", "#ed968c", "#7c4b73", "#88a0dc"))  +
   stat_smooth(method = 'lm', se = TRUE, alpha = 0.1, color = "black") +
   xlim(c(45,100)) + ylim(c(-75, 120)) +
-  #scale_x_continuous(limits = c(130, 1350), breaks = seq(100,1400, 300)) +
-  #scale_y_continuous(limits = c(-1500,6000)) +
   labs(x = "Area loss (%)", y = "Species loss (%)") +
   theme_minimal() +
   theme(axis.line = element_line(colour = "grey50", size = 0.6), legend.position = 'none')
@@ -1190,17 +1189,20 @@ mamcor_ric_area <- cor.test(x = df_forcor$Area_loss,
 mamcor_ric_area$estimate
 mamcor_ric_area$p.value
 
-df_forcor2 <- as.data.frame(cbind(pixels_df2$WC_zone, pixels_df2$per_loss, Mam_rich_total$bs75_fos75[2:6]))
-df_forcor2 <- as.data.frame(cbind(pixels_df2$WC_zone, pixels_df2$per_loss, Mam_rich_total$bs50_fos50[2:6]))
-df_forcor2 <- as.data.frame(cbind(pixels_df2$WC_zone, pixels_df2$per_loss, Mam_rich_total$bs25_fos25[2:6]))
+df_forcor2 <- as.data.frame(cbind(pixels_df2$WC_zone, pixels_df2$per_loss, 
+                                  Mam_rich_total$bs75_fos75[2:6]))
+df_forcor2 <- as.data.frame(cbind(pixels_df2$WC_zone, pixels_df2$per_loss, 
+                                  Mam_rich_total$bs50_fos50[2:6]))
+df_forcor2 <- as.data.frame(cbind(pixels_df2$WC_zone, pixels_df2$per_loss, 
+                                  Mam_rich_total$bs25_fos25[2:6]))
 colnames(df_forcor2) <- c("WC_zone", "Area_loss", "Sp_loss")
+
 #pdf("Cor_Foss25.pdf", useDingbats = F, width = 10, height = 7)
 ggplot(data = df_forcor2, aes(x = Area_loss, y = Sp_loss)) +
-  geom_point(size = 4, alpha = 1, color = c("#f9d14a", "#ab3329", "#ed968c", "#7c4b73", "#88a0dc"))  +
+  geom_point(size = 4, alpha = 1, 
+             color = c("#f9d14a", "#ab3329", "#ed968c", "#7c4b73", "#88a0dc"))  +
   stat_smooth(method = 'lm', se = TRUE, alpha = 0.1, color = "black") +
   xlim(c(45,100)) + ylim(c(-75, 120)) +
-  #scale_x_continuous(limits = c(130, 1350), breaks = seq(100,1400, 300)) +
-  #scale_y_continuous(limits = c(-1500,6000)) +
   labs(x = "Area loss (%)", y = "Species loss (%)") +
   theme_minimal() +
   theme(axis.line = element_line(colour = "grey50", size = 0.6), legend.position = 'none')
@@ -1210,7 +1212,6 @@ mamcor_ric_area <- cor.test(x = df_forcor2$Area_loss,
                             method = 'pearson')
 mamcor_ric_area$estimate
 mamcor_ric_area$p.value
-
 
 
 ########################### 0.9 quantile regressions ############################
@@ -1269,13 +1270,13 @@ for (i in 1:length(qr_all)) {
   qrmean_all <- rbind(qrmean_all, qrmeans)
 }
 qrmean_all <- as.data.frame(qrmean_all)
-colnames(qrmean_all) <- c("Name", "Mean", "Min", "Max", "Lower95", "Median", "Upper95", "N_pvalsig")
+colnames(qrmean_all) <- c("Name", "Mean", "Min", "Max", "Lower95", "Median", 
+                          "Upper95", "N_pvalsig")
 for (i in 2:7) {
   qrmean_all[,i] <- as.numeric(qrmean_all[,i])
 }
 
-### Slope decay plot
-#setwd("./Figures/Figure_09regression")
+## Slope decay plot
 #pdf("Slope_decress.pdf", useDingbats = F, width = 10, height = 7)
 ggplot(qrmean_all[c(1,2,3,6,9,15),], aes(1:6, -Median)) +
   xlab("") +
@@ -1288,12 +1289,18 @@ ggplot(qrmean_all[c(1,2,3,6,9,15),], aes(1:6, -Median)) +
   geom_line(data = qrmean_all[c(1,2,4,7,10,13),], color = "honeydew4") +
   geom_line(data = qrmean_all[c(1,2,5,8,11,17),], color = "honeydew3") +
   geom_line(data = qrmean_all[c(1,2,5,8,11,14),], color = "honeydew3") +
-  geom_ribbon(data = qrmean_all[c(1,2,3,6,9,15),], aes(ymin = -Lower95, ymax=-Upper95), fill = "black", alpha = 0.2) +
-  geom_ribbon(data = qrmean_all[c(1,2,3,6,9,12),], aes(ymin = -Lower95, ymax=-Upper95), fill = "black", alpha = 0.2) +
-  geom_ribbon(data = qrmean_all[c(1,2,4,7,10,16),], aes(ymin = -Lower95, ymax=-Upper95), fill = "honeydew4", alpha = 0.2) +
-  geom_ribbon(data = qrmean_all[c(1,2,4,7,10,13),], aes(ymin = -Lower95, ymax=-Upper95), fill = "honeydew4", alpha = 0.2) +
-  geom_ribbon(data = qrmean_all[c(1,2,5,8,11,17),], aes(ymin = -Lower95, ymax=-Upper95), fill = "honeydew3", alpha = 0.2) +
-  geom_ribbon(data = qrmean_all[c(1,2,5,8,11,14),], aes(ymin = -Lower95, ymax=-Upper95), fill = "honeydew3", alpha = 0.2)
+  geom_ribbon(data = qrmean_all[c(1,2,3,6,9,15),], aes(ymin = -Lower95, ymax=-Upper95), 
+              fill = "black", alpha = 0.2) +
+  geom_ribbon(data = qrmean_all[c(1,2,3,6,9,12),], aes(ymin = -Lower95, ymax=-Upper95), 
+              fill = "black", alpha = 0.2) +
+  geom_ribbon(data = qrmean_all[c(1,2,4,7,10,16),], aes(ymin = -Lower95, ymax=-Upper95), 
+              fill = "honeydew4", alpha = 0.2) +
+  geom_ribbon(data = qrmean_all[c(1,2,4,7,10,13),], aes(ymin = -Lower95, ymax=-Upper95), 
+              fill = "honeydew4", alpha = 0.2) +
+  geom_ribbon(data = qrmean_all[c(1,2,5,8,11,17),], aes(ymin = -Lower95, ymax=-Upper95), 
+              fill = "honeydew3", alpha = 0.2) +
+  geom_ribbon(data = qrmean_all[c(1,2,5,8,11,14),], aes(ymin = -Lower95, ymax=-Upper95), 
+              fill = "honeydew3", alpha = 0.2)
 #dev.off()
 
 qr_means_inter <- function(ddbb_input) {
@@ -1314,7 +1321,6 @@ qr_means_inter <- function(ddbb_input) {
   return(qr_summaries)
 }
 
-
 qrmean_all_inter <- NULL
 for (i in 1:length(qr_all)) {
   qrmeans <- qr_means_inter(qr_all[[i]])
@@ -1327,7 +1333,7 @@ for (i in 2:7) {
 }
 
 
-### 0.9 quantile regressions plots
+## 0.9 quantile regressions plots
 ribbons_plot <- list()
 xlims_plot <- list()
 ylims_plot <- list()
@@ -1342,9 +1348,12 @@ for (i in 1:17) {
     ylim(0,200) +
     ylab("") +
     theme_classic() +
-    geom_abline(aes(intercept=qrmean_all_inter[i,6], slope=qrmean_all[i,6], color = "1.Original"), lwd=1) +
-    geom_abline(aes(intercept=qrmean_all_inter[i,7], slope=qrmean_all[i,7]), linetype = 'dotted', lwd=1) +
-    geom_abline(aes(intercept=qrmean_all_inter[i,5], slope=qrmean_all[i,5]), linetype = 'dotted', lwd=1) +
+    geom_abline(aes(intercept=qrmean_all_inter[i,6], slope=qrmean_all[i,6], 
+                    color = "1.Original"), lwd=1) +
+    geom_abline(aes(intercept=qrmean_all_inter[i,7], slope=qrmean_all[i,7]), 
+                linetype = 'dotted', lwd=1) +
+    geom_abline(aes(intercept=qrmean_all_inter[i,5], slope=qrmean_all[i,5]), 
+                linetype = 'dotted', lwd=1) +
     scale_colour_manual(values = rev(my_colours))
   p_x <- layer_scales(p.prueba)$x$get_limits()
   p_y <- layer_scales(p.prueba)$y$get_limits()
@@ -1359,11 +1368,9 @@ for (i in 1:17) {
   ylims_plot[[i]] <- p_y
 }
 
-#Y ploteamos
+
 p <- ggplot(mam_r_dfforplot, aes(abs(Longlat), Richness)) + geom_blank() +
-  #xlim(0, 200) +
   xlab("") +
-  #ylim(0,200) +
   ylab("") +
   theme_classic() +
   geom_abline(aes(intercept=qrmean_all_inter[1,6], slope=qrmean_all[1,6], color = "1.Original"), lwd=1) +
@@ -1418,9 +1425,7 @@ p
 
 
 p2 <- ggplot(mam_r_dfforplot, aes(abs(Longlat), Richness)) + geom_blank() +
-  #xlim(0, 200) +
   xlab("") +
-  #ylim(0,200) +
   ylab("") +
   theme_classic() +
   geom_abline(aes(intercept=qrmean_all_inter[1,6], slope=qrmean_all[1,6], color = "1.Original"), lwd=1) +
@@ -1475,9 +1480,7 @@ p2
 
 
 p3 <- ggplot(mam_r_dfforplot, aes(abs(Longlat), Richness)) + geom_blank() +
-  #xlim(0, 200) +
   xlab("") +
-  #ylim(0,200) +
   ylab("") +
   theme_classic() +
   geom_abline(aes(intercept=qrmean_all_inter[1,6], slope=qrmean_all[1,6], color = "1.Original"), lwd=1) +
